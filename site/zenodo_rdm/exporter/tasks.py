@@ -196,7 +196,6 @@ def export_records(format, community_slug):
     _update_file_instance_metadata(records_file_instance)
     _update_file_instance_metadata(deleted_file_instance)
 
-    # TODO: timestamp in the filename? Can't we use the timestamp from the object version?
     filename_prefix = f"{community_slug}/" if community_slug else ""
     records_filename = f"{filename_prefix}records-{format}.tar.gz"
     deleted_filename = f"{filename_prefix}records-deleted.csv.gz"
