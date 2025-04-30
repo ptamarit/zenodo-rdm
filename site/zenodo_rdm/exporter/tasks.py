@@ -17,10 +17,8 @@ from io import BytesIO
 
 from celery import shared_task
 from flask import current_app
-from flask_principal import identity_changed
-from invenio_access.permissions import any_user, authenticated_user
-from invenio_access.utils import get_identity
-from invenio_accounts.proxies import current_datastore
+from flask_principal import AnonymousIdentity, identity_changed
+from invenio_access.permissions import any_user
 from invenio_communities.communities.records.models import CommunityMetadata
 from invenio_db import db
 from invenio_files_rest.models import (
@@ -34,19 +32,16 @@ from invenio_rdm_records.oai import oai_datacite_etree
 from invenio_rdm_records.proxies import current_rdm_records_service as service
 from lxml import etree
 
-# TODO: or "application/x-tar" or "application/x-gtar" since it's a ".tar.gz"?
 RECORDS_MIMETYPE = "application/gzip"
 DELETED_MIMETYPE = "application/gzip"
 
 
-def _identity_for(id_or_email):
-    idty = get_identity(current_datastore.get_user(id_or_email))
+def _get_anonymous_identity():
+    anonymous_identity = AnonymousIdentity()
     with current_app.test_request_context():
-        identity_changed.send(current_app, identity=idty)
-        # Needs to be added manually
-        idty.provides.add(authenticated_user)
-        idty.provides.add(any_user)
-    return idty
+        identity_changed.send(current_app, identity=anonymous_identity)
+        anonymous_identity.provides.add(any_user)
+    return anonymous_identity
 
 
 def _export_records(format, community_slug, records_file, deleted_file):
@@ -60,11 +55,10 @@ def _export_records(format, community_slug, records_file, deleted_file):
             .one()[0]
         )
 
-    user_id = current_app.config["EXPORTER_USER_ID"]
-    idty = _identity_for(user_id)
+    anonymous_identity = _get_anonymous_identity()
 
     res = service.scan(
-        idty,
+        anonymous_identity,
         q=f"parent.communities.ids:{community_uuid}" if community_uuid else "",
         params={"allversions": True, "include_deleted": True},
     )
