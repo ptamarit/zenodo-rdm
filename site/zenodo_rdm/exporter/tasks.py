@@ -66,7 +66,6 @@ def _export_records(format, community_slug, records_file, deleted_file):
     res = service.scan(
         idty,
         q=f"parent.communities.ids:{community_uuid}" if community_uuid else "",
-        # TODO: Passing `"include_deleted": False` seems to also include deleted records!
         params={"allversions": True, "include_deleted": True},
     )
 
@@ -93,21 +92,15 @@ def _export_records(format, community_slug, records_file, deleted_file):
             deleted_writer.writerow(
                 [
                     record_id,
-                    record["links"]["doi"],
-                    # TODO: Or one of these other ways of getting a DOI?
-                    # record["links"]["self_doi"],
-                    # record["links"]["self_doi_html"],
-                    # record["pids"]["doi"]["identifier"]
-                    record["tombstone"]["removal_reason"]["id"],
-                    record["tombstone"]["removal_date"],
-                    record["tombstone"]["citation_text"],
+                    record["pids"]["doi"]["identifier"],
+                    record.get("tombstone", {}).get("removal_reason", {}).get("id"),
+                    record.get("tombstone", {}).get("removal_date"),
+                    record.get("tombstone", {}).get("citation_text"),
                 ]
             )
             continue
 
         if format == "json":
-            # TODO: Is this the correct way of getting all the records information in JSON?
-            # TODO: Is it fine to use `encode()` or should we use `StringIO` (instead of `BytesIO`)?
             content_bytes = json.dumps(record).encode()
         elif format == "xml":
             try:
@@ -137,20 +130,19 @@ def _create_or_get_bucket():
     bucket = as_bucket(bucket_uuid)
     if not bucket:
         print(f"Creating exporter bucket: {bucket_uuid}")
-        with db.session.begin_nested():
-            bucket = Bucket(
-                id=bucket_uuid,
-                default_location=Location.get_default().id,
-                default_storage_class=current_app.config[
-                    "FILES_REST_DEFAULT_STORAGE_CLASS"
-                ],
-            )
-            db.session.add(bucket)
-            db.session.commit()
-            # Revert default values coming from the config.
-            bucket.quota_size = None
-            bucket.max_file_size = None
-            db.session.commit()
+        bucket = Bucket(
+            id=bucket_uuid,
+            default_location=Location.get_default().id,
+            default_storage_class=current_app.config[
+                "FILES_REST_DEFAULT_STORAGE_CLASS"
+            ],
+        )
+        db.session.add(bucket)
+        db.session.commit()
+        # Revert default values coming from the config.
+        bucket.quota_size = None
+        bucket.max_file_size = None
+        db.session.commit()
     else:
         print(f"Exporter bucket found: {bucket_uuid}")
     return bucket
