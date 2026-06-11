@@ -421,3 +421,6 @@ THEME_MATHJAX_CDN = (
 
 RDM_RECORD_SCHEMA = ZenodoRecordSchema
 """Base record schema."""
+
+REQUESTS_TIMELINE_REFRESH_INTERVAL = None
+"""Disabling the periodic refresh of the request details timeline to avoid causing performance issues."""
